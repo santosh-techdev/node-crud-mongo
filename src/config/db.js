@@ -1,19 +1,16 @@
-const { MongoClient } = require('mongodb');
-require('dotenv').config();
+// config/db.js
+const mongoose = require('mongoose');
 
-const client = new MongoClient(process.env.MONGO_URI);
+const connectDB = async () => {
+    if (mongoose.connection.readyState === 1) return; // Already connected
 
-async function connectDB() {
     try {
-        if (!client.topology || !client.topology.isConnected()) {
-            await client.connect();
-            console.log('MongoDB Connected');
-        }
-        return client.db('wheelpact-db'); // make sure this matches your DB name
+        const conn = await mongoose.connect(process.env.MONGO_URI);
+        console.log(`MongoDB connected: ${conn.connection.host}/${conn.connection.name}`);
     } catch (err) {
-        console.error('MongoDB Connection Error:', err);
-        throw err;
+        console.error('MongoDB connection error:', err.message);
+        process.exit(1);
     }
-}
+};
 
-module.exports = { client, connectDB };
+module.exports = connectDB;

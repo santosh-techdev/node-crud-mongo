@@ -54,10 +54,9 @@ router.get('/:id', verifyToken, getUserById);
  * @swagger
  * /api/users:
  *   post:
- *     summary: Create a new user
+ *     summary: Register a new user
+ *     description: Create a new user and send OTP verification to their email.
  *     tags: [Users]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -67,17 +66,34 @@ router.get('/:id', verifyToken, getUserById);
  *             required:
  *               - name
  *               - email
+ *               - contact_no
  *               - password
+ *               - confirm_password
  *             properties:
  *               name:
  *                 type: string
+ *                 example: "Jhony Deo"
  *               email:
  *                 type: string
+ *                 example: "useremail@example.com"
+ *               contact_no:
+ *                 type: string
+ *                 example: "1234567890"
  *               password:
  *                 type: string
+ *                 example: "Strong@123"
+ *               confirm_password:
+ *                 type: string
+ *                 example: "Strong@123"
  *     responses:
- *       201:
- *         description: User created
+ *       200:
+ *         description: A verification OTP has been sent to your email.
+ *       400:
+ *         description: Missing or invalid input
+ *       409:
+ *         description: User or email already exists
+ *       500:
+ *         description: Server error
  */
 router.post('/', verifyToken, createUser);
 

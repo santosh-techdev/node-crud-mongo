@@ -1,51 +1,114 @@
+
+const bcrypt = require('bcryptjs');
 const User = require('../models/userModel');
-const Password = require('../models/passwordModel');
-const bcrypt = require('bcrypt');
+const UsersCredential = require('../models/usersCredential');
+const sendEmail = require('../services/emailService');
+const OTPService = require('../services/otpService');
 
 // Helper to generate next user code (e.g., USR00023)
 async function generateUserCode() {
     const lastUser = await User.findOne().sort({ _id: -1 });
     const lastId = lastUser ? parseInt(lastUser.user_code.replace('USR', '')) : 0;
     const nextId = lastId + 1;
-    return `USR${String(nextId).padStart(5, '0')}`;
+    return nextId;
 }
-
-// CREATE User
+// Create User
 exports.createUser = async (req, res) => {
-    try {
-        const { name, email, gender, contact_no, password } = req.body;
+    const session = await mongoose.startSession(); // Start session
+    session.startTransaction(); // Begin transaction
 
-        if (!name || !email || !password) {
-            return res.status(400).json({ message: 'Name, Email, and Password are required' });
+    try {
+        const { name, email, contact_no, password, confirm_password } = req.body;
+
+        // Step 1: Validate required fields
+        if (!name)
+            return res.status(409).json({ responseCode: 409, responseMessage: 'Required Name.' });
+        if (!email)
+            return res.status(409).json({ responseCode: 409, responseMessage: 'Required Email.' });
+        if (!contact_no)
+            return res.status(409).json({ responseCode: 409, responseMessage: 'Required Contact Number.' });
+        if (!password || !confirm_password)
+            return res.status(409).json({ responseCode: 409, responseMessage: 'Password fields are required.' });
+        if (password !== confirm_password)
+            return res.status(409).json({ responseCode: 409, responseMessage: 'Passwords do not match.' });
+
+        // Step 2: Check for duplicate user (email/contact)
+        const existingUser = await User.findOne({
+            is_active: 1,
+            $or: [
+                { email: email },
+                { contact_no: contact_no }
+            ]
+        });
+
+        if (existingUser) {
+            let msg;
+            if (existingUser.email === email && existingUser.contact_no === contact_no)
+                msg = 'User already exists.';
+            else if (existingUser.email === email)
+                msg = 'Email already registered.';
+            else msg = 'Contact number already registered.';
+
+            return res.status(409).json({ responseCode: 409, responseMessage: msg });
         }
 
-        const user_code = await generateUserCode();
+        // Step 3: Generate OTP and user code
+        const otp = OTPService.generateOTP();
+        const lastUser = await User.findOne().sort({ _id: -1 });
+        const next_id = lastUser ? lastUser.id + 1 : 1;
 
-        const newUser = new User({
-            user_code,
+        // Step 4: Create user
+        const user = await User.create([{
+            id: next_id,
+            user_code: `USR${String(next_id).padStart(5, '0')}`,
             name,
             email,
-            gender,
-            contact_no,
-            otp: Math.floor(100000 + Math.random() * 900000), // random 6-digit OTP
+            contact_no: parseInt(contact_no, 10),
+            role_id: 2,
+            otp: parseInt(otp, 10),
             otp_status: 1,
-            is_active: 1
-        });
+            is_active: 2,
+            created_at: new Date()
+        }], { session });
 
-        const savedUser = await newUser.save();
-
-        // Hash password before saving
+        // Step 5: Hash and save credentials
         const hashedPassword = await bcrypt.hash(password, 10);
-        const userPassword = new Password({
-            user_id: savedUser._id,
-            password: hashedPassword
-        });
-        await userPassword.save();
+        await UsersCredential.create([{
+            id: next_id,
+            user_id: next_id,
+            password: hashedPassword,
+            is_active: 1,
+            created_at: new Date()
+        }], { session });
 
-        res.status(201).json({ message: 'User created successfully', user: savedUser });
-    } catch (err) {
-        console.error('Error creating user:', err);
-        res.status(500).json({ message: 'Failed to create user', error: err.message });
+        // Step 6: (Optional) Send verification email
+        // const subject = 'Partner Registration OTP Verification';
+        // const body = `<p>Dear ${name},</p>
+        // <p>Your OTP for registration is: <b>${otp}</b></p>`;
+        // const mailSent = await sendEmail(email, name, subject, body);
+        // if (!mailSent) throw new Error('Email sending failed');
+
+        // ✅ Commit the transaction
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(200).json({
+            responseCode: 200,
+            responseMessage: 'User created successfully. Verification OTP sent to email.',
+            partnerId: user[0]._id
+        });
+
+    } catch (error) {
+        // ❌ Rollback on any error
+        await session.abortTransaction();
+        session.endSession();
+
+        console.error('Error in createUser (rolled back):', error);
+        res.status(500).json({
+            responseCode: 500,
+            responseMessage: 'An unexpected error occurred. Transaction rolled back.',
+            error: error.message
+        });
     }
 };
 

@@ -1,26 +1,19 @@
-const express = require('express');
-const { MongoClient } = require('mongodb');
-const app = express();
-const PORT = process.env.PORT || 3000;
+const mongoose = require('mongoose');
+require('dotenv').config();
 
-// MongoDB Connection
-const uri = 'mongodb://localhost:27017';
-const client = new MongoClient(uri);
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/wheelpact-db';
 
-app.get('/api/users', async (req, res) => {
+(async () => {
     try {
-        await client.connect();
-        const db = client.db('wheelpact_demo'); // Your database name
-        const users = await db.collection('users').find().toArray();
-        res.json(users);
-    } catch (err) {
-        console.error('MongoDB fetch error:', err);
-        res.status(500).json({ error: 'Failed to fetch users' });
-    } finally {
-        await client.close(); // Optional: close after each request
-    }
-});
+        console.log('Connecting to MongoDB...');
+        await mongoose.connect(MONGO_URI);
+        console.log('MongoDB connected successfully!');
+        console.log('Connected to DB:', mongoose.connection.name);
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+        await mongoose.connection.close();
+        console.log('🔌 Connection closed.');
+    } catch (error) {
+        console.error('MongoDB connection failed!');
+        console.error(error.message);
+    }
+})();
