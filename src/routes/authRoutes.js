@@ -4,6 +4,13 @@ const { login } = require('../controllers/authController');
 
 /**
  * @swagger
+ * tags:
+ *   name: Auth
+ *   description: Authentication
+ */
+
+/**
+ * @swagger
  * /api/login:
  *   post:
  *     summary: Login user and get JWT token
@@ -14,8 +21,11 @@ const { login } = require('../controllers/authController');
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - email
+ *               - password
  *             properties:
- *               username:
+ *               email:
  *                 type: string
  *               password:
  *                 type: string

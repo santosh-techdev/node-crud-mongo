@@ -6,21 +6,18 @@ const swaggerOptions = {
         info: {
             title: 'Node CRUD API',
             version: '1.0.0',
-            description: 'Express + MongoDB API with JWT & Swagger',
+            description: 'Express + MongoDB CRUD API with JWT & Swagger',
         },
         servers: [{ url: 'http://localhost:3000' }],
         components: {
             securitySchemes: {
-                bearerAuth: {
-                    type: 'http',
-                    scheme: 'bearer',
-                    bearerFormat: 'JWT',
-                },
+                bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
             },
         },
         security: [{ bearerAuth: [] }],
     },
-    apis: ['./src/routes/*.js'],
+    apis: ['./src/routes/*.js']
+
 };
 
 module.exports = swaggerJsdoc(swaggerOptions);
